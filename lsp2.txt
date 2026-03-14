@@ -1,0 +1,494 @@
+Below is the **next-level advanced Linux system programming learning file**.
+It continues from the previous file and introduces **more advanced OS concepts** in increasing difficulty.
+
+Topics covered:
+
+1. `dup()` and `dup2()` file descriptor control
+2. `select()` for multiplexed I/O
+3. `poll()` I/O monitoring
+4. `pthread` threads
+5. `mutex` synchronization
+6. `POSIX semaphores`
+7. `POSIX message queues`
+8. `daemon process creation`
+9. `TCP socket server`
+10. `TCP socket client`
+11. `UNIX domain sockets`
+12. `epoll()` high-performance event handling
+
+Compile:
+
+```bash
+gcc linux_sysprog_advanced.c -o linux_sysprog_advanced -pthread -lrt
+```
+
+Run:
+
+```bash
+./linux_sysprog_advanced
+```
+
+---
+
+# Advanced Linux System Programming Learning File
+
+```c
+/*
+    linux_sysprog_advanced.c
+
+    Advanced Linux System Programming Learning Programs
+
+    Topics covered:
+
+    1. dup() / dup2()
+    2. select()
+    3. poll()
+    4. pthread threads
+    5. mutex synchronization
+    6. POSIX semaphores
+    7. POSIX message queues
+    8. daemon process creation
+    9. TCP socket server
+    10. TCP socket client
+    11. UNIX domain sockets
+    12. epoll()
+
+    Compile:
+    gcc linux_sysprog_advanced.c -o linux_sysprog_advanced -pthread -lrt
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <mqueue.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/select.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/un.h>
+#include <sys/epoll.h>
+
+/* --------------------------------------------------- */
+/* 1. dup() demonstration                              */
+/* --------------------------------------------------- */
+
+void demo_dup()
+{
+    int fd = open("dup_demo.txt", O_CREAT | O_WRONLY | O_TRUNC, 0644);
+
+    int newfd = dup(fd);
+
+    write(fd, "Writing using original fd\n", 26);
+    write(newfd, "Writing using duplicated fd\n", 29);
+
+    close(fd);
+    close(newfd);
+
+    printf("dup() demonstration completed\n");
+}
+
+/* --------------------------------------------------- */
+/* 2. select() I/O multiplexing                        */
+/* --------------------------------------------------- */
+
+void demo_select()
+{
+    fd_set readfds;
+
+    printf("Type something within 5 seconds:\n");
+
+    FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
+
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+
+    int ret = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout);
+
+    if (ret == 0)
+        printf("Timeout occurred\n");
+    else
+    {
+        char buf[100];
+        read(STDIN_FILENO, buf, sizeof(buf));
+        printf("Input received\n");
+    }
+}
+
+/* --------------------------------------------------- */
+/* 3. poll() example                                   */
+/* --------------------------------------------------- */
+
+void demo_poll()
+{
+    struct pollfd pfd;
+
+    pfd.fd = STDIN_FILENO;
+    pfd.events = POLLIN;
+
+    printf("Waiting for input (poll)...\n");
+
+    int ret = poll(&pfd, 1, 5000);
+
+    if (ret == 0)
+        printf("Timeout\n");
+    else
+        printf("Data available on stdin\n");
+}
+
+/* --------------------------------------------------- */
+/* 4. pthread thread example                           */
+/* --------------------------------------------------- */
+
+void* thread_function(void* arg)
+{
+    printf("Thread running\n");
+    sleep(2);
+    printf("Thread exiting\n");
+    return NULL;
+}
+
+void demo_thread()
+{
+    pthread_t tid;
+
+    pthread_create(&tid, NULL, thread_function, NULL);
+
+    pthread_join(tid, NULL);
+
+    printf("Thread joined\n");
+}
+
+/* --------------------------------------------------- */
+/* 5. Mutex example                                    */
+/* --------------------------------------------------- */
+
+pthread_mutex_t lock;
+int counter = 0;
+
+void* mutex_thread(void* arg)
+{
+    for(int i=0;i<100000;i++)
+    {
+        pthread_mutex_lock(&lock);
+        counter++;
+        pthread_mutex_unlock(&lock);
+    }
+    return NULL;
+}
+
+void demo_mutex()
+{
+    pthread_t t1,t2;
+
+    pthread_mutex_init(&lock,NULL);
+
+    pthread_create(&t1,NULL,mutex_thread,NULL);
+    pthread_create(&t2,NULL,mutex_thread,NULL);
+
+    pthread_join(t1,NULL);
+    pthread_join(t2,NULL);
+
+    printf("Counter = %d\n",counter);
+
+    pthread_mutex_destroy(&lock);
+}
+
+/* --------------------------------------------------- */
+/* 6. POSIX semaphore                                  */
+/* --------------------------------------------------- */
+
+sem_t sem;
+
+void* sem_thread(void* arg)
+{
+    sem_wait(&sem);
+    printf("Thread entered critical section\n");
+    sleep(1);
+    printf("Thread leaving\n");
+    sem_post(&sem);
+    return NULL;
+}
+
+void demo_semaphore()
+{
+    pthread_t t1,t2;
+
+    sem_init(&sem,0,1);
+
+    pthread_create(&t1,NULL,sem_thread,NULL);
+    pthread_create(&t2,NULL,sem_thread,NULL);
+
+    pthread_join(t1,NULL);
+    pthread_join(t2,NULL);
+
+    sem_destroy(&sem);
+}
+
+/* --------------------------------------------------- */
+/* 7. POSIX message queue                              */
+/* --------------------------------------------------- */
+
+void demo_message_queue()
+{
+    mqd_t mq;
+    struct mq_attr attr;
+
+    attr.mq_flags = 0;
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = 100;
+    attr.mq_curmsgs = 0;
+
+    mq = mq_open("/mqdemo", O_CREAT | O_RDWR, 0644, &attr);
+
+    char msg[] = "Hello Message Queue";
+
+    mq_send(mq, msg, strlen(msg)+1, 0);
+
+    char buffer[100];
+
+    mq_receive(mq, buffer, 100, NULL);
+
+    printf("Received: %s\n",buffer);
+
+    mq_close(mq);
+    mq_unlink("/mqdemo");
+}
+
+/* --------------------------------------------------- */
+/* 8. Daemon process creation                          */
+/* --------------------------------------------------- */
+
+void demo_daemon()
+{
+    pid_t pid = fork();
+
+    if(pid > 0)
+    {
+        printf("Daemon created with PID %d\n",pid);
+        exit(0);
+    }
+
+    setsid();
+
+    chdir("/");
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+    while(1)
+        sleep(10);
+}
+
+/* --------------------------------------------------- */
+/* 9. TCP server                                       */
+/* --------------------------------------------------- */
+
+void demo_tcp_server()
+{
+    int sockfd, clientfd;
+    struct sockaddr_in addr;
+    char buffer[100];
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(9000);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    bind(sockfd,(struct sockaddr*)&addr,sizeof(addr));
+
+    listen(sockfd,5);
+
+    printf("Server listening on port 9000\n");
+
+    clientfd = accept(sockfd,NULL,NULL);
+
+    read(clientfd,buffer,sizeof(buffer));
+
+    printf("Client says: %s\n",buffer);
+
+    close(clientfd);
+    close(sockfd);
+}
+
+/* --------------------------------------------------- */
+/* 10. TCP client                                      */
+/* --------------------------------------------------- */
+
+void demo_tcp_client()
+{
+    int sockfd;
+    struct sockaddr_in addr;
+
+    sockfd = socket(AF_INET,SOCK_STREAM,0);
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(9000);
+    inet_pton(AF_INET,"127.0.0.1",&addr.sin_addr);
+
+    connect(sockfd,(struct sockaddr*)&addr,sizeof(addr));
+
+    char msg[]="Hello from client";
+
+    write(sockfd,msg,strlen(msg)+1);
+
+    close(sockfd);
+}
+
+/* --------------------------------------------------- */
+/* 11. UNIX domain sockets                             */
+/* --------------------------------------------------- */
+
+void demo_unix_socket()
+{
+    int sockfd;
+    struct sockaddr_un addr;
+
+    sockfd = socket(AF_UNIX,SOCK_STREAM,0);
+
+    addr.sun_family = AF_UNIX;
+    strcpy(addr.sun_path,"unix_socket_demo");
+
+    bind(sockfd,(struct sockaddr*)&addr,sizeof(addr));
+
+    printf("Unix socket created\n");
+
+    close(sockfd);
+}
+
+/* --------------------------------------------------- */
+/* 12. epoll example                                   */
+/* --------------------------------------------------- */
+
+void demo_epoll()
+{
+    int epfd = epoll_create1(0);
+
+    struct epoll_event event;
+
+    event.events = EPOLLIN;
+    event.data.fd = STDIN_FILENO;
+
+    epoll_ctl(epfd,EPOLL_CTL_ADD,STDIN_FILENO,&event);
+
+    struct epoll_event events[1];
+
+    printf("Waiting for input using epoll...\n");
+
+    epoll_wait(epfd,events,1,-1);
+
+    printf("Input detected\n");
+
+    close(epfd);
+}
+
+/* --------------------------------------------------- */
+/* Menu                                                */
+/* --------------------------------------------------- */
+
+void menu()
+{
+    printf("\nAdvanced Linux System Programming\n");
+    printf("----------------------------------\n");
+    printf("1  dup()\n");
+    printf("2  select()\n");
+    printf("3  poll()\n");
+    printf("4  pthread\n");
+    printf("5  mutex\n");
+    printf("6  semaphore\n");
+    printf("7  message queue\n");
+    printf("8  daemon\n");
+    printf("9  TCP server\n");
+    printf("10 TCP client\n");
+    printf("11 Unix socket\n");
+    printf("12 epoll\n");
+    printf("0  exit\n");
+}
+
+/* --------------------------------------------------- */
+
+int main()
+{
+    int choice;
+
+    while(1)
+    {
+        menu();
+
+        printf("Enter choice: ");
+        scanf("%d",&choice);
+
+        switch(choice)
+        {
+            case 1: demo_dup(); break;
+            case 2: demo_select(); break;
+            case 3: demo_poll(); break;
+            case 4: demo_thread(); break;
+            case 5: demo_mutex(); break;
+            case 6: demo_semaphore(); break;
+            case 7: demo_message_queue(); break;
+            case 8: demo_daemon(); break;
+            case 9: demo_tcp_server(); break;
+            case 10: demo_tcp_client(); break;
+            case 11: demo_unix_socket(); break;
+            case 12: demo_epoll(); break;
+            case 0: exit(0);
+        }
+    }
+
+    return 0;
+}
+```
+
+---
+
+# What This Advanced File Teaches
+
+## Concurrency
+
+* `pthread_create`
+* `pthread_join`
+* `mutex`
+* `semaphore`
+
+## IPC Mechanisms
+
+* **message queues**
+* **UNIX sockets**
+* **TCP sockets**
+
+## Event-Driven Programming
+
+* `select`
+* `poll`
+* `epoll`
+
+## System Services
+
+* daemon processes
+
+## File Descriptor Management
+
+* `dup()`
+
+---
+
+# After These Two Files You Will Know
+
+**~70–80% of Linux system programming used in real projects**, including:
+
+* Linux device driver user-space interaction
+* Embedded Linux development
+* High-performance network services
+* Multi-process architecture
+
+---
