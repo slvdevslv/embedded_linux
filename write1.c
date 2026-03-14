@@ -8,7 +8,7 @@ int main() {
        2. Pointer to the message buffer
        3. Number of bytes to write
     */
-    write(1, message, strlen(message),strlen(msg));
+    write(1, message, strlen(message));
 
     return 0;
 }
