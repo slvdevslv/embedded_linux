@@ -1,0 +1,38 @@
+df
+wc - word count
+cat
+pipe command
+objdump --source ./<executable> To dump assembly code..
+
+systems calls are apis exposed by kernel to user space. These are exposed through glibc
+
+os architecture styles: monolithic and microkernel.
+Linux is monolithic
+It still allows adding code and data and removing the same from kernel. This is done through loadable kernel modules. 
+
+
+Apps are run as processes.
+A process may be single-threaded or multi-threaded.
+
+how does printf work..
+* printf formats the output and calls write system call.
+* write function writes the buffer content to a special device file - monitor device ie stdout as per write().
+* Kernel code of write calls the device driver which writes to the monitor and return values go back all the way to application.
+
+A helloworld app(process) printing on screen:
+* process is born in kernel space and then switches to user space.
+* app calls printf lib call
+* printf calls write system call
+* process invoking system call switches to kernel/supervisor mode 
+* process then runs kernel code, the device driver code and in the process writes the hello text on to monitor.
+* After doing this process switches back to user mode and continues..
+  
+
+glibc has two parts.
+arch-independent glibc.
+arch-dependent glibc: The system call stubs..
+arch is cpu.
+
+
+virtual memory:
+
