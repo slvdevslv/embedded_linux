@@ -1,0 +1,14 @@
+Process Memory Mapping Demo
+
+Address of main (code/text): 0x55c78f9e9262
+Address of demo_function (text): 0x55c78f9e91c9
+
+Global / Static Segments:
+global_init (.data):   0x55c78f9ec010
+global_uninit (.bss):  0x55c78f9ec020
+global_const (.rodata):0x55c78f9ec014
+static_var (.data):    0x55c78f9ec018
+
+Inside demo_function:
+Address of local_var (stack): 0x7ffe6ace0e4c
+Address of heap_var (heap):  0x55c78f9ee2b0
